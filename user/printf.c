@@ -7,6 +7,10 @@
 
 static char digits[] = "0123456789ABCDEF";
 
+FILE *stdin = (FILE *)0;
+FILE *stdout = (FILE *)1;
+FILE *stderr = (FILE *)2;
+
 static void
 putc(int fd, char c)
 {
@@ -118,17 +122,15 @@ int
 fprintf(FILE *stream, const char *fmt, ...)
 {
     va_list ap;
+    int fd = STDOUT_FILENO;
+
+    if (stream == stderr)
+        fd = STDERR_FILENO;
 
     va_start(ap, fmt);
-    /*
-     * TODO: Implement vfprintf and use it here.
-     *int n = vfprintf(stream, fmt, ap);
-     *va_end(ap);
-     *
-     *return n;
-    */
+    vprintf(fd, fmt, ap);
+    va_end(ap);
 
-    // just for now so it doesnt get upset that its a int without a return
     return 0;
 }
 
@@ -138,16 +140,8 @@ printf(const char *fmt, ...)
     va_list ap;
 
     va_start(ap, fmt);
-    
-    /*
-     * TODO: Implement vprintf and use it here.
-     *int n = vfprintf(stdout, fmt, ap);
-     *
-     *va_end(ap);
-     *
-     *return n;
-     */
+    vprintf(STDOUT_FILENO, fmt, ap);
+    va_end(ap);
 
-    // just for now so it doesnt get upset that its a int without a return
     return 0;
 }
