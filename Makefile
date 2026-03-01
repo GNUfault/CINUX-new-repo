@@ -104,10 +104,7 @@ _%: %.o $(ULIB) $U/user.ld
 	$(OBJDUMP) -S $@ > $*.asm
 	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
 
-$U/usys.S : $U/usys.pl
-	perl $U/usys.pl > $U/usys.S
-
-$U/usys.o : $U/usys.S
+$U/usys.o :
 	$(CC) $(CFLAGS) -c -o $U/usys.o $U/usys.S
 
 $U/_forktest: $U/forktest.o $(ULIB)
@@ -148,7 +145,6 @@ clean:
 	*/*.o */*.d */*.asm */*.sym \
 	$K/kernel fs.img \
 	mkfs/mkfs .gdbinit \
-        $U/usys.S \
 	$(UPROGS)
 
 # try to generate a unique GDB port
