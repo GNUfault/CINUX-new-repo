@@ -3,7 +3,13 @@
 #include "kernel/fcntl.h"
 #include "kernel/riscv.h"
 #include "kernel/vm.h"
-#include "user/user.h"
+#include "libc/sys/stat.h"
+#include "libc/stdio.h"
+#include "libc/stdlib.h"
+#include "libc/string.h"
+#include "libc/unistd.h"
+
+void *sys_sbrk(int n, int mode);
 
 //
 // wrapper so that it's OK if main() does not call exit().
@@ -36,7 +42,7 @@ strcmp(const char *p, const char *q)
   return (uchar)*p - (uchar)*q;
 }
 
-uint
+size_t
 strlen(const char *s)
 {
   int n;
@@ -66,22 +72,19 @@ strchr(const char *s, char c)
   return 0;
 }
 
-char*
-gets(char *buf, int max)
+char
+*gets(char *buf)
 {
-  int i, cc;
-  char c;
+    int i = 0;
+    char c;
 
-  for(i=0; i+1 < max; ){
-    cc = read(0, &c, 1);
-    if(cc < 1)
-      break;
-    buf[i++] = c;
-    if(c == '\n' || c == '\r')
-      break;
-  }
-  buf[i] = '\0';
-  return buf;
+    while (read(0, &c, 1) == 1) {
+        if (c == '\n' || c == '\r')
+            break;
+        buf[i++] = c;
+    }
+    buf[i] = '\0';
+    return buf;
 }
 
 int
@@ -149,9 +152,9 @@ memcpy(void *dst, const void *src, uint n)
   return memmove(dst, src, n);
 }
 
-char *
-sbrk(int n) {
-  return sys_sbrk(n, SBRK_EAGER);
+void
+*sbrk(int n) {
+    return sys_sbrk(n, SBRK_EAGER);
 }
 
 char *

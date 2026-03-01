@@ -1,7 +1,7 @@
 #ifndef STRING_H
 #define STRING_H
 
-#include <sys/types.h>
+#include "sys/types.h"
 
 char* strcpy(char*, const char*);
 char* strchr(const char*, char);

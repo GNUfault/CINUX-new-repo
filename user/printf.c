@@ -1,6 +1,7 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
-#include "user/user.h"
+#include "libc/stdio.h"
+#include "libc/unistd.h"
 
 #include <stdarg.h>
 
@@ -113,20 +114,40 @@ vprintf(int fd, const char *fmt, va_list ap)
   }
 }
 
-void
-fprintf(int fd, const char *fmt, ...)
+int
+fprintf(FILE *stream, const char *fmt, ...)
 {
-  va_list ap;
+    va_list ap;
 
-  va_start(ap, fmt);
-  vprintf(fd, fmt, ap);
+    va_start(ap, fmt);
+    /*
+     * TODO: Implement vfprintf and use it here.
+     *int n = vfprintf(stream, fmt, ap);
+     *va_end(ap);
+     *
+     *return n;
+    */
+
+    // just for now so it doesnt get upset that its a int without a return
+    return 0;
 }
 
-void
+int
 printf(const char *fmt, ...)
 {
-  va_list ap;
+    va_list ap;
 
-  va_start(ap, fmt);
-  vprintf(1, fmt, ap);
+    va_start(ap, fmt);
+    
+    /*
+     * TODO: Implement vprintf and use it here.
+     *int n = vfprintf(stdout, fmt, ap);
+     *
+     *va_end(ap);
+     *
+     *return n;
+     */
+
+    // just for now so it doesnt get upset that its a int without a return
+    return 0;
 }

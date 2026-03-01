@@ -1,10 +1,16 @@
 #ifndef STDIO_H
 #define STDIO_H
 
-#include <sys/types.h>
+#include "sys/types.h"
+
+typedef struct FILE FILE;
+
+extern FILE *stdin;
+extern FILE *stdout;
+extern FILE *stderr;
 
 int printf(const char*, ...);
 int fprintf(FILE *stream, const char *fmt, ...);
-int gets(char*, int);
+char *gets(char *s);
 
 #endif // STDIO_H

@@ -1,10 +1,12 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
-#include "user/user.h"
+#include "libc/unistd.h"
 #include "kernel/param.h"
 
 // Memory allocator by Kernighan and Ritchie,
 // The C programming Language, 2nd ed.  Section 8.7.
+
+#define SBRK_ERROR ((void*) -1)
 
 typedef long Align;
 

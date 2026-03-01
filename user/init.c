@@ -5,8 +5,9 @@
 #include "kernel/sleeplock.h"
 #include "kernel/fs.h"
 #include "kernel/file.h"
-#include "user/user.h"
+#include "libc/stdio.h"
 #include "kernel/fcntl.h"
+#include "libc/cinux/syscalls.h"
 
 int
 main(void)

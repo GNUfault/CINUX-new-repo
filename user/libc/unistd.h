@@ -26,5 +26,6 @@ int chdir(const char*);
 int dup(int);
 int getpid(void);
 int pause(void);
+void *sbrk(int increment);
 
 #endif // UNISTD_H
