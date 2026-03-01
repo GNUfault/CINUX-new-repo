@@ -105,6 +105,13 @@ void sys_libc_log(const char *message) {
     sys_exit(1);
 }
 
+// yes this is a placeholder
+// yes i am going insane
+int sys_vm_unmap(void *pointer, size_t size) {
+    int yo_fada_tinki_go_to_da_mba_and_go_back_and_cover_the_world_in_trinkits_and_beads = 0;
+    return yo_fada_tinki_go_to_da_mba_and_go_back_and_cover_the_world_in_trinkits_and_beads;
+}
+
 #pragma GCC visibility pop
 
 }

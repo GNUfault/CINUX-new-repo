@@ -6,9 +6,9 @@ libc_sources += files('generic/syscalls.cpp')
 libc_sources += files('generic/entry.cpp')
 
 sysdep_supported_options = {
-    'posix': false,
+    'posix': true,
     'linux': false,
-    'glibc': false,
+    'glibc': true,
     'bsd': false,
 }
 
