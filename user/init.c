@@ -1,25 +1,18 @@
-// init: The initial user-level program
-
 #include "kernel/types.h"
-#include "kernel/spinlock.h"
-#include "kernel/sleeplock.h"
-#include "kernel/fs.h"
-#include "kernel/file.h"
-#include "libc/stdio.h"
+#include "kernel/stat.h"
 #include "kernel/fcntl.h"
-#include "libc/cinux/syscalls.h"
+
+extern int exec(char*, char**);
+extern void exit(int) __attribute__((noreturn));
 
 int
 main(void)
 {
-  if(open("console", O_RDWR) < 0){
-    mknod("console", CONSOLE, 0);
-    open("console", O_RDWR);
-  }
-  dup(0);  // stdout
-  dup(0);  // stderr
+  char *argv[] = { "hello", 0 };
 
-  printf("Hello, world!\n");
+  exec("hello", argv);
+
 
   for(;;);
+  return 0;
 }
