@@ -77,7 +77,6 @@ CFLAGS += -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vprintf
 CFLAGS += -I.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
-# Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
 CFLAGS += -fno-pie -no-pie
 endif
@@ -88,7 +87,7 @@ endif
 LDFLAGS = -z max-page-size=4096
 
 $K/kernel: $(OBJS) $K/kernel.ld
-	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) 
+	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS)
 	$(OBJDUMP) -S $K/kernel > $K/kernel.asm
 	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
 
@@ -110,83 +109,55 @@ $U/usys.o :
 	$(CC) $(CFLAGS) -c -o $U/usys.o $U/usys.S
 
 $U/_forktest: $U/forktest.o $(ULIB)
-	# forktest has less library code linked in - needs to be small
-	# in order to be able to max out the proc table.
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_forktest $U/forktest.o $U/ulib.o $U/usys.o
 	$(OBJDUMP) -S $U/_forktest > $U/forktest.asm
 
-mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
-	gcc -Wno-unknown-attributes -I. -o mkfs/mkfs mkfs/mkfs.c
-
-# Prevent deletion of intermediate files, e.g. cat.o, after first build, so
-# that disk image changes after first build are persistent until clean.  More
-# details:
-# http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
-.PRECIOUS: %.o
-
-mlibc: 
+mlibc:
 	cd mlibc && \
-	meson setup --cross-file=cinux-riscv64.txt --prefix=/usr -Dheaders_only=true headers-build && \
-	DESTDIR=$(shell pwd)/sysroot ninja -C build-full install
-
-MLIBC_BUILD = $(shell pwd)/mlibc/build-full
-SYSROOT = $(shell pwd)/sysroot
+	mkdir -p build && \
+	meson setup --wipe --cross-file=cinux-riscv64.txt --prefix=/usr -Dheaders_only=false build && \
+	DESTDIR=$(shell pwd)/sysroot ninja -C build install
 
 hello: mlibc/test.c mlibc/stubs.cpp
-	riscv64-linux-gnu-gcc -static -o hello mlibc/test.c mlibc/stubs.cpp \
-		-nostdlib \
-		-fno-stack-protector \
-		-isystem $(SYSROOT)/usr/local/include \
-		-isystem $(shell pwd)/mlibc/sysdeps/cinux/include \
-		-Wl,-T,user/user.ld \
-		-Wl,--whole-archive $(MLIBC_BUILD)/options/ansi/libmlibc-musl-math.a \
-		-Wl,--no-whole-archive \
-		$(MLIBC_BUILD)/libc.so.p/*.o \
-		-lgcc
+	cd mlibc && \
+	riscv64-linux-gnu-gcc -static -o ../hello test.c stubs.cpp \
+    -nostdlib \
+    -fno-stack-protector \
+    -isystem $(shell pwd)/sysroot/usr/include \
+    -I$(shell pwd)/options/ansi/include \
+    -I./sysdeps/cinux/include \
+    -Wl,--whole-archive ./build/options/ansi/libmlibc-musl-math.a -Wl,--no-whole-archive \
+    ./build/libc.so.p/*.o \
+    -lgcc
 
-UPROGS=\
-$U/_init
+$U/_init: $U/init.o $(ULIB)
 
-fs.img: mkfs/mkfs $(UPROGS) hello
-	mkfs/mkfs fs.img $(UPROGS) hello
+UPROGS = $U/_init
+EXT2_BLOCKS = 16384
 
--include kernel/*.d user/*.d
+ext2root: $(UPROGS) hello
+	mkdir -p ext2root
+	cp $U/_init ext2root/init
+	cp hello     ext2root/hello
 
-clean: 
-	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
-	*/*.o */*.d */*.asm */*.sym \
-	$K/kernel fs.img \
-	mkfs/mkfs .gdbinit \
-	hello \
-	$(UPROGS)
+ext2.img: ext2root
+	rm -f ext2.img
+	mke2fs -t ext2 -E revision=0 -b 1024 -I 128 -d ext2root ext2.img $(EXT2_BLOCKS)
+	@echo "ext2.img created ($(EXT2_BLOCKS) 1 KiB blocks)"
 
-# try to generate a unique GDB port
-GDBPORT = $(shell expr `id -u` % 5000 + 25000)
-# QEMU's gdb stub command line changed in 0.11
-QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
-	then echo "-gdb tcp::$(GDBPORT)"; \
-	else echo "-s -p $(GDBPORT)"; fi)
 ifndef CPUS
 CPUS := 3
 endif
 
-QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
+QEMUOPTS  = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
 QEMUOPTS += -global virtio-mmio.force-legacy=false
-QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
+QEMUOPTS += -drive file=ext2.img,if=none,format=raw,id=x0
 QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
-qemu: check-qemu-version $K/kernel fs.img
-	$(QEMU) $(QEMUOPTS)
-
-.gdbinit: .gdbinit.tmpl-riscv
-	sed "s/:1234/:$(GDBPORT)/" < $^ > $@
-
-qemu-gdb: $K/kernel .gdbinit fs.img
-	@echo "*** Now run 'gdb' in another window." 1>&2
-	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
-
-print-gdbport:
-	@echo $(GDBPORT)
+GDBPORT = $(shell expr `id -u` % 5000 + 25000)
+QEMUGDB  = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
+	then echo "-gdb tcp::$(GDBPORT)"; \
+	else echo "-s -p $(GDBPORT)"; fi)
 
 QEMU_VERSION := $(shell $(QEMU) --version | head -n 1 | sed -E 's/^QEMU emulator version ([0-9]+\.[0-9]+)\..*/\1/')
 check-qemu-version:
@@ -195,4 +166,32 @@ check-qemu-version:
 		exit 1; \
 	fi
 
-.PHONY: all mlibc qemu qemu-gdb check-qemu-version clean tags
+qemu: check-qemu-version $K/kernel ext2.img
+	$(QEMU) $(QEMUOPTS)
+
+.gdbinit: .gdbinit.tmpl-riscv
+	sed "s/:1234/:$(GDBPORT)/" < $^ > $@
+
+qemu-gdb: $K/kernel .gdbinit ext2.img
+	@echo "*** Now run 'gdb' in another window." 1>&2
+	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+
+print-gdbport:
+	@echo $(GDBPORT)
+
+mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
+	gcc -Wno-unknown-attributes -I. -o mkfs/mkfs mkfs/mkfs.c
+
+-include kernel/*.d user/*.d
+
+clean:
+	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
+	*/*.o */*.d */*.asm */*.sym \
+	$K/kernel \
+	mkfs/mkfs .gdbinit \
+	hello \
+	ext2.img \
+	$(UPROGS)
+	rm -rf ext2root
+
+.PHONY: all mlibc qemu qemu-gdb check-qemu-version clean tags ext2root

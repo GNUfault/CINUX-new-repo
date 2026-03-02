@@ -11,9 +11,10 @@ struct file {
 
 #define major(dev)  ((dev) >> 16 & 0xFFFF)
 #define minor(dev)  ((dev) & 0xFFFF)
-#define	mkdev(m,n)  ((uint)((m)<<16| (n)))
+#define mkdev(m,n)  ((uint)((m)<<16| (n)))
 
 // in-memory copy of an inode
+struct inode_operations;  // defined in icache.h
 struct inode {
   uint dev;           // Device number
   uint inum;          // Inode number
@@ -26,7 +27,11 @@ struct inode {
   short minor;
   short nlink;
   uint size;
-  uint addrs[NDIRECT+1];
+  uint addrs[NDIRECT+1]; // xv6 fs: data block addresses (used by fs.c)
+
+  // ext2 filesystem support
+  struct inode_operations *iops; // NULL for xv6fs; set for ext2
+  void *ext_addrs;               // ext2: points into ext2fs_addrs[] pool
 };
 
 // map major device number to device functions.
