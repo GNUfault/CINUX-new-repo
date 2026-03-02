@@ -28,7 +28,8 @@ OBJS = \
   $K/sysfile.o \
   $K/kernelvec.o \
   $K/plic.o \
-  $K/virtio_disk.o
+  $K/virtio_disk.o \
+  $K/ext2fs.o \
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -123,10 +124,30 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 # http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
 .PRECIOUS: %.o
 
+mlibc: 
+	cd mlibc && \
+	meson setup --cross-file=cinux-riscv64.txt --prefix=/usr -Dheaders_only=true headers-build && \
+	DESTDIR=$(shell pwd)/sysroot ninja -C build-full install
+
+MLIBC_BUILD = $(shell pwd)/mlibc/build-full
+SYSROOT = $(shell pwd)/sysroot
+
+hello: mlibc/test.c mlibc/stubs.cpp
+	riscv64-linux-gnu-gcc -static -o hello mlibc/test.c mlibc/stubs.cpp \
+		-nostdlib \
+		-fno-stack-protector \
+		-isystem $(SYSROOT)/usr/local/include \
+		-isystem $(shell pwd)/mlibc/sysdeps/cinux/include \
+		-Wl,-T,user/user.ld \
+		-Wl,--whole-archive $(MLIBC_BUILD)/options/ansi/libmlibc-musl-math.a \
+		-Wl,--no-whole-archive \
+		$(MLIBC_BUILD)/libc.so.p/*.o \
+		-lgcc
+
 UPROGS=\
 $U/_init
 
-fs.img: mkfs/mkfs $(UPROGS) hello 
+fs.img: mkfs/mkfs $(UPROGS) hello
 	mkfs/mkfs fs.img $(UPROGS) hello
 
 -include kernel/*.d user/*.d
@@ -136,6 +157,7 @@ clean:
 	*/*.o */*.d */*.asm */*.sym \
 	$K/kernel fs.img \
 	mkfs/mkfs .gdbinit \
+	hello \
 	$(UPROGS)
 
 # try to generate a unique GDB port
@@ -172,3 +194,5 @@ check-qemu-version:
 		echo "ERROR: Need qemu version >= $(MIN_QEMU_VERSION)"; \
 		exit 1; \
 	fi
+
+.PHONY: all mlibc qemu qemu-gdb check-qemu-version clean tags
